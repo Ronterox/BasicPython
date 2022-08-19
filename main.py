@@ -1,5 +1,6 @@
 DIGITS = '0123456789'
 OPERATORS = '+-/*'
+PARENTHESIS = '()'
 
 linenum = 0
 
@@ -47,13 +48,16 @@ def parse(line):
         advance()
         pass
 
+    # Adding Tokens ------------------------------------------------------------------------
+
     advance()
 
     # Slower but don't care
     switch = {
         ' \t': advance,
         DIGITS: add_num,
-        OPERATORS: add_operator
+        OPERATORS: add_operator,
+        PARENTHESIS: add_operator
     }.items()
 
     while char is not None:
@@ -68,13 +72,27 @@ def parse(line):
             add_error(f"Illegal Char \'{char}\' at line {linenum} !")
             advance()
 
-    print_list = errors if errors else tokens
-    for token in print_list: print(token)
+    # Results ------------------------------------------------------------------------
+    if errors:
+        for e in errors: print(e, end=' ')
+    else:
+        expr = ''
+        for val in tokens: expr += str(val)
+
+        print(expr, end=' ')
+
+        for op in OPERATORS:
+            if op in tokens:
+                try:
+                    print('=', eval(expr), end='')
+                except SyntaxError:
+                    print(f"Incorrect syntax at line {linenum}!", end='')
+                break
     pass
 
 
 if __name__ == '__main__':
     line = ""
     while line.lower() != "exit":
-        line = input("Basic > ")
+        line = input(f"\n[{linenum + 1}] Basic > ")
         parse(line)
