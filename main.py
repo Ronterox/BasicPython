@@ -1,13 +1,6 @@
 from string import ascii_letters
-from enum import Enum
 
-
-class Context(Enum):
-    NONE = 0
-    NEW_VAR = 1
-    ASSIGN = 2
-    USE_VAR = 3
-
+# TODO: have aliases alias instead of #Define
 
 DIGITS = '0123456789'
 OPERATORS = '+-/*'
@@ -17,28 +10,19 @@ EQUAL = '='
 
 linenum = 0
 
-context: Context = Context.NONE
-
 KEYWORDS = [
-    "var"
+    'exit',
+    'var'
 ]
 
-# TODO: think about stack later
+parenthesis = -1
+
 VARIABLES = {}
-
-var = None
-
-
-def def_variable(value):
-    global var, context
-
-    VARIABLES[var] = value
-    context = Context.NONE
-    var = None
+FUNCTIONS = {}
 
 
 def parse(line):
-    global pos, char, linenum, context, var
+    global pos, char, linenum, parenthesis
 
     linenum += 1
 
@@ -49,10 +33,10 @@ def parse(line):
     errors = []
 
     # Slower but don't care
-    add_token = lambda x: tokens.append(x)
+    add_token = lambda t: tokens.append(t)
 
     # Slower but don't care
-    add_error = lambda x: errors.append(x)
+    add_error = lambda e: errors.append(f'Error at line {linenum}: {e}')
 
     def advance():
         global pos, char
@@ -66,64 +50,39 @@ def parse(line):
 
         while char is not None and char in DIGITS + '.':
             if char == '.':
-                if dots == 1: break
+                if dots == 1:
+                    add_error("Extra dot found!")
+                    break
                 dots += 1
 
             num += char
             advance()
 
-        if context == Context.ASSIGN:
-            def_variable(num)
-        else:
-            add_token(float(num) if dots == 1 else int(num))
-        pass
+        add_token(float(num) if dots == 1 else int(num))
 
     def add_operator():
         add_token(char)
         advance()
-        pass
+
+        if char is None:
+            errors.append(f"Expected assignment!")
+
+    def add_parenthesis():
+        global parenthesis
+
+        parenthesis += 1 if char == '(' else -1
+
+        add_token(char)
+        advance()
 
     def add_word():
-        global context, var
-
         word = ''
 
         while char is not None and char in LETTERS:
             word += char
             advance()
 
-        # TODO: Obviously switch this asap
-        # TODO: Remove context from here, Add Tokens, Then Act line
-        if context == Context.NONE:
-            if word == 'var':
-                context = Context.NEW_VAR
-            elif word in VARIABLES.keys():
-                context = Context.USE_VAR
-                var = word
-            else:
-                # TODO: Add linenum automatically
-                errors.append(f"Variable name {word} not found at line {linenum}")
-        elif context == Context.NEW_VAR:
-            if word not in VARIABLES.keys():
-                var = word
-            else:
-                errors.append(f"Redefining variable of name {word}")
-        elif context == Context.ASSIGN:
-            def_variable(word)
-        else:
-            errors.append(f"Context not expected error at line {linenum}. Context: {context}")
-
-    def add_equal():
-        global context
-
-        advance()
-
-        if char is None:
-            errors.append(f'Expected assignment at line {linenum}')
-        elif char == EQUAL:
-            pass
-        else:
-            context = Context.ASSIGN
+        add_token(word)
 
     # Adding Tokens ------------------------------------------------------------------------
 
@@ -134,51 +93,85 @@ def parse(line):
         ' \t': advance,
         DIGITS: add_num,
         OPERATORS: add_operator,
-        PARENTHESIS: add_operator,
+        PARENTHESIS: add_parenthesis,
         LETTERS: add_word,
-        EQUAL: add_equal
+        EQUAL: add_operator
     }.items()
 
     while char is not None:
         actionated = False
 
-        for val, action in switch:
-            if char is not None and char in val:
+        for tok, action in switch:
+            if char is not None and char in tok:
                 actionated = True
                 action()
 
         if not actionated:
-            add_error(f"Illegal Char \'{char}\' at line {linenum} !")
+            add_error(f"Illegal Char '{char}'!")
             advance()
 
+    if parenthesis != -1:
+        parenthesis = -1
+        add_error("Incorrect Parenthesis!")
+
     # Results ------------------------------------------------------------------------
+    expr = ''
+    for tok in tokens: expr += str(tok)
+
+    result = None
+
     if errors:
         for e in errors: print(e, end=' ')
-        # TODO: Clean all variables
-    elif context == Context.USE_VAR:
-        print(f'{var} = {VARIABLES[var]}')
-        # TODO: this a method
-        context = Context.NONE
-        var = None
+        errors.clear()
     else:
-        expr = ''
-        for val in tokens: expr += str(val)
+        split = expr.strip().split('=')
 
-        print(expr, end=' ')
+        size = len(split)
 
-        for op in OPERATORS:
-            if op in tokens:
+        if size > 2:  # Error
+            add_error("Incorrect expression!")
+
+        elif size > 1:  # Assignment
+            left, right = split
+
+            def assign():
                 try:
-                    print('=', eval(expr), end='')
+                    return exec(left + '=' + str(eval(right, VARIABLES)), VARIABLES)
                 except SyntaxError:
-                    print(f"Incorrect syntax at line {linenum}!", end='')
-                break
+                    add_error("Syntax error!")
+                    return None
 
+            # TODO: print assign statements better
+            if left.startswith(KEYWORDS[1]):
+                left = left[len(KEYWORDS[1]):]
+                if left in VARIABLES:
+                    add_error(f"Redefining variable {left}!")
+                else:
+                    result = assign()
+            elif left in VARIABLES:
+                result = assign()
+            else:
+                add_error(f"Variables {left} is not defined!")
 
-pass
+        else:  # Execution
+            try:
+                if split[0] in VARIABLES:
+                    result = exec(split[0], FUNCTIONS) if split[0] in FUNCTIONS else VARIABLES[split[0]]
+                else:
+                    for op in OPERATORS:
+                        if op in split[0]:
+                            result = eval(split[0], VARIABLES)
+            except SyntaxError:
+                add_error("Syntax error!")
+
+        if errors:
+            for e in errors: print(e, end=' ')
+
+    print(expr + f' = {str(result)}' if result else expr)
+
 
 if __name__ == '__main__':
-    line = ""
-    while line.lower() != "exit":
+    line = ''
+    while line.lower() != KEYWORDS[0]:
         line = input(f"\n[{linenum + 1}] Basic > ")
         parse(line)
