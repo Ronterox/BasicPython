@@ -1,12 +1,12 @@
 import basic
 
-quit_commands = ['quit()', 'exit()', 'q()', '.exit', '.quit']
+quit_commands: list[str] = ['quit()', 'exit()', 'q()', '.exit', '.quit']
 
 while True:
-    text = input('basic > ')
+    text: str = input('basic > ')
     if text in quit_commands:
         print('Exiting...')
         break
-    result, error = basic.parse(text)
 
+    result, error = basic.parse(text)
     print(error if error else result)
