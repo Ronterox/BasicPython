@@ -56,15 +56,16 @@ class Lexer:
             char: str = self.current_char
             match char:
                 case char if char in WHITESPACE:
-                    self.advance()
+                    pass
                 case char if char in DIGITS:
                     tokens.append(self.make_number())
-                    self.advance()
                 case Type.PLUS.value | Type.MINUS.value | Type.MUL.value | Type.DIV.value:
                     tokens.append(Token(Type(char)))
-                    self.advance()
+                case Type.LPAR.value | Type.RPAR.value:
+                    tokens.append(Token(Type(char)))
                 case _:
                     return [], IllegalCharError(char)
+            self.advance()
 
         return tokens, None
 
