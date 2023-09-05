@@ -48,10 +48,6 @@ class Lexer:
     def advance(self) -> None:
         self.pos += 1
         self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
-    
-    def go_back(self) -> None:
-        self.pos -= 1
-        self.current_char = self.text[self.pos] if self.pos > -1 else None
 
     def make_tokens(self) -> tuple[list[Token], Error | None]:
         tokens: list[Token] = []
@@ -69,7 +65,9 @@ class Lexer:
                     tokens.append(Token(Type(char)))
                 case _:
                     return [], IllegalCharError(char)
-            self.advance()
+
+            if char not in DIGITS: # Slower but cleaner
+                self.advance()
 
         return tokens, None
 
@@ -84,9 +82,6 @@ class Lexer:
                 dots += 1
             num += self.current_char
             self.advance()
-        
-        if self.current_char != None:
-            self.go_back()
 
         return Token(Type.FLOAT, float(num)) if dots == 1 else Token(Type.INT, int(num))
 
