@@ -1,5 +1,6 @@
 from enum import Enum
 from string import ascii_letters as LETTERS, digits as DIGITS, whitespace as WHITESPACE
+from dataclasses import dataclass
 
 
 class Type(Enum):
@@ -16,20 +17,6 @@ class Type(Enum):
 TokenValue = str | float | int | None
 
 
-class Error:
-    def __init__(self, error: str, details: str) -> None:
-        self.error: str = error
-        self.details: str = details
-
-    def __repr__(self) -> str:
-        return f'{self.error}: {self.details}'
-
-
-class IllegalCharError(Error):
-    def __init__(self, details: str) -> None:
-        super().__init__('Illegal Character', details)
-
-
 class Token:
     def __init__(self, type_: Type, value: TokenValue = None) -> None:
         self.type: Type = type_
@@ -39,15 +26,51 @@ class Token:
         return f'{self.type.name}:{self.value}'
 
 
+class Position:
+    def __init__(self) -> None:
+        self.line: int = 0
+        self.col: int = 0
+        self.idx: int = 0
+
+    def advance(self, char: str | None) -> None:
+        self.idx += 1
+        self.col += 1
+        if char == '\n':
+            self.line += 1
+            self.col = 0
+
+
+@dataclass
+class Details:
+    info: str
+    pos: Position
+    filename: str
+
+
+class Error:
+    def __init__(self, error: str, details: Details) -> None:
+        self.error: str = error
+        self.details: Details = details
+
+    def __repr__(self) -> str:
+        return f'{self.error} on file {self.details.filename} at line {self.details.pos.line}, col {self.details.pos.col}: {self.details.info}'
+
+
+class IllegalCharError(Error):
+    def __init__(self, details: Details) -> None:
+        super().__init__('Illegal Character', details)
+
+
 class Lexer:
-    def __init__(self, text: str) -> None:
+    def __init__(self, filename: str, text: str) -> None:
         self.text: str = text
-        self.pos: int = 0
-        self.current_char: str | None = self.text[self.pos]
+        self.pos: Position = Position()
+        self.current_char: str | None = self.text[self.pos.col]
+        self.filename: str = filename
 
     def advance(self) -> None:
-        self.pos += 1
-        self.current_char = self.text[self.pos] if self.pos < len(self.text) else None
+        self.pos.advance(self.current_char)
+        self.current_char = self.text[self.pos.idx] if self.pos.idx < len(self.text) else None
 
     def make_tokens(self) -> tuple[list[Token], Error | None]:
         tokens: list[Token] = []
@@ -62,11 +85,11 @@ class Lexer:
                 case Type.PLUS.value | Type.MINUS.value | Type.MUL.value | Type.DIV.value:
                     tokens.append(Token(Type(char)))
                 case Type.LPAR.value | Type.RPAR.value:
-                    tokens.append(Token(Type(char)))
+                    pass
                 case _:
-                    return [], IllegalCharError(char)
+                    return [], IllegalCharError(Details(f"'{char}'", self.pos, self.filename))
 
-            if char not in DIGITS: # Slower but cleaner
+            if char not in DIGITS:  # Slower but cleaner
                 self.advance()
 
         return tokens, None
@@ -86,12 +109,12 @@ class Lexer:
         return Token(Type.FLOAT, float(num)) if dots == 1 else Token(Type.INT, int(num))
 
 
-def parse(text: str) -> tuple[list[Token], Error | None]:
-    lexer = Lexer(text)
+def parse(filename: str, text: str) -> tuple[list[Token], Error | None]:
+    lexer = Lexer(filename, text)
     tokens, error = lexer.make_tokens()
 
     return tokens, error
 
 
 if __name__ == "__main__":
-    print(parse('1 + 2 * 3'))
+    print(parse(__file__, '1 + 2 * 3'))
