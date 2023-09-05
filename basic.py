@@ -1,5 +1,6 @@
+# use strict
 from enum import Enum
-from string import ascii_letters as LETTERS, digits as DIGITS, whitespace as WHITESPACE
+from string import digits as DIGITS, whitespace as WHITESPACE
 from dataclasses import dataclass
 
 
@@ -109,7 +110,7 @@ class Lexer:
         return Token(Type.FLOAT, float(num)) if dots == 1 else Token(Type.INT, int(num))
 
 
-def parse(filename: str, text: str) -> tuple[list[Token], Error | None]:
+def evaluate(filename: str, text: str) -> tuple[list[Token], Error | None]:
     lexer = Lexer(filename, text)
     tokens, error = lexer.make_tokens()
 
@@ -117,4 +118,4 @@ def parse(filename: str, text: str) -> tuple[list[Token], Error | None]:
 
 
 if __name__ == "__main__":
-    print(parse(__file__, '1 + 2 * 3'))
+    print(evaluate(__file__, '1 + 2 * 3'))

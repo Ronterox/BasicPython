@@ -8,5 +8,5 @@ while True:
         print('Exiting...')
         break
 
-    result, error = basic.parse('<stdout>', text)
+    result, error = basic.evaluate('<stdout>', text)
     print(error if error else result)

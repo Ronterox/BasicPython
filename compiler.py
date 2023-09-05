@@ -7,7 +7,7 @@ if len(argv) < 2:
 
 for filepath in argv[1:]:
     with open(filepath) as file:
-        result, error = basic.parse(filepath, file.read())
+        result, error = basic.evaluate(filepath, file.read())
         if error:
             print(error)
         else:
