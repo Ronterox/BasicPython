@@ -63,14 +63,28 @@ class IllegalCharError(Error):
         super().__init__('Illegal Character', details)
 
 
+class SyntaxError(Error):
+    def __init__(self, details: Details) -> None:
+        super().__init__('Syntax Error', details)
+
+
 @dataclass
-class Node:
-    left: 'Node | Token'
+class BinaryOperationNode:
+    left: 'BinaryOperationNode | Token'
     op: Token
-    right: 'Node | Token'
+    right: 'BinaryOperationNode | Token'
 
     def __repr__(self) -> str:
         return f'({self.left}, {self.op}, {self.right})'
+
+
+@dataclass
+class UnaryOperationNode:
+    op: Token
+    node: BinaryOperationNode | Token
+
+    def __repr__(self) -> str:
+        return f'({self.op}, {self.node})'
 
 
 class Parser:
@@ -79,7 +93,7 @@ class Parser:
         self.token_idx: int = 0
         self.current_token: Token = self.tokens[self.token_idx]
 
-    def parse(self) -> Node | Token:
+    def parse(self) -> BinaryOperationNode | Token:
         return self.expr()
 
     def advance(self) -> None:
@@ -93,19 +107,19 @@ class Parser:
             self.advance()
         return token
 
-    def binary_operation(self, getNode: Callable[[], Node | Token], conditionType: tuple[Type, Type]) -> Node | Token:
+    def binary_operation(self, getNode: Callable[[], BinaryOperationNode | Token], conditionType: tuple[Type, Type]) -> BinaryOperationNode | Token:
         left = getNode()
         while self.current_token.type in conditionType:
             op = self.current_token
             self.advance()
             right = getNode()
-            left = Node(left, op, right)
+            left = BinaryOperationNode(left, op, right)
         return left
 
-    def term(self) -> Node | Token:
+    def term(self) -> BinaryOperationNode | Token:
         return self.binary_operation(self.factor, (Type.MUL, Type.DIV))
 
-    def expr(self) -> Node | Token:
+    def expr(self) -> BinaryOperationNode | Token:
         return self.binary_operation(self.term, (Type.PLUS, Type.MINUS))
 
 
@@ -157,10 +171,11 @@ class Lexer:
         return Token(Type.FLOAT, float(num)) if dots == 1 else Token(Type.INT, int(num))
 
 
-def evaluate(filename: str, text: str) -> tuple[Node | Token | None, Error | None]:
+def evaluate(filename: str, text: str) -> tuple[BinaryOperationNode | Token | None, Error | None]:
     lexer = Lexer(filename, text)
     tokens, error = lexer.make_tokens()
-    if tokens == None: return None, error
+    if tokens == None:
+        return None, error
 
     parser = Parser(tokens)
     abstract_tree = parser.parse()
